@@ -1,0 +1,28 @@
+---
+description: Respect project intentions and v1 scope for the timeseries library
+alwaysApply: true
+---
+
+# Project intentions
+
+Before expanding scope, read and follow [docs/INTENTIONS.md](docs/INTENTIONS.md).
+
+## Stay in v1
+
+Allowed: Series construction, slice/filter, align/merge, fill/DropNA, resample, rolling, arithmetic, lag/diff/pct_change, interpolate.
+
+Do **not** add without updating INTENTIONS first:
+
+- Multi-column DataFrame APIs
+- CSV/JSON I/O
+- Plotting
+- OHLC bars
+- Business calendars
+
+## Preserve invariants
+
+- UTC times, strictly ascending, unique
+- Equal length of times and values
+- `math.NaN()` marks missing float64 values
+- Resample buckets are `[t, t+d)`
+- Public ops return new series; do not mutate caller data

@@ -1,0 +1,26 @@
+---
+description: Go API and coding conventions for the timeseries package
+alwaysApply: true
+---
+
+# Go conventions
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full detail.
+
+## Package
+
+- Single root package `timeseries`
+- Module: `github.com/eduard-kolotushin/timeseries`
+- Go 1.26+
+
+## API
+
+- Methods on `Series[T]` for structural operations
+- Package functions for `Series[float64]` numeric operations
+- Return new series from public ops; clone slices as needed
+
+## Quality
+
+- Table-driven tests next to code
+- No drive-by refactors outside the task
+- Keep public API documented and stable within v1
