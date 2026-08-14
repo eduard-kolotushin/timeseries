@@ -45,7 +45,7 @@ Do not add these without first updating this document:
 
 - Multi-column / DataFrame APIs
 - CSV / JSON persistence or I/O helpers
-- Plotting or visualization hooks
+- Plotting or visualization hooks (those live in the sibling plugin `timeseries-grafana`)
 - OHLC / candlestick bars
 - Business-day or exchange calendars
 - Concurrent mutation of a shared series

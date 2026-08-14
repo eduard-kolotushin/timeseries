@@ -15,7 +15,7 @@ Do **not** add without updating INTENTIONS first:
 
 - Multi-column DataFrame APIs
 - CSV/JSON I/O
-- Plotting
+- Plotting (sibling `timeseries-grafana`)
 - OHLC bars
 - Business calendars
 - Forecasting (sibling module `timeseries-forecast`)

@@ -32,7 +32,7 @@ Construction, slice/filter, merge/align, DropNA/fill, resample/upsample/downsamp
 
 ## v1 out of scope
 
-Multi-column DataFrame, CSV/JSON I/O, plotting, OHLC bars, business calendars, concurrency-safe shared mutation, SIMD/GPU kernels, forecasting (see sibling `timeseries-forecast`).
+Multi-column DataFrame, CSV/JSON I/O, plotting (see sibling `timeseries-grafana`), OHLC bars, business calendars, concurrency-safe shared mutation, SIMD/GPU kernels, forecasting (see sibling `timeseries-forecast`).
 
 ## Workflow
 
