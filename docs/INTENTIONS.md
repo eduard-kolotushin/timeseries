@@ -50,6 +50,7 @@ Do not add these without first updating this document:
 - Business-day or exchange calendars
 - Concurrent mutation of a shared series
 - SIMD/assembly kernels, GPU offload, or a separate “fast” API
+- Forecasting models (those live in the sibling module `github.com/eduard-kolotushin/timeseries-forecast`)
 
 ## Quality bar
 

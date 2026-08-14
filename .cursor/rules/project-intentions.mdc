@@ -18,6 +18,7 @@ Do **not** add without updating INTENTIONS first:
 - Plotting
 - OHLC bars
 - Business calendars
+- Forecasting (sibling module `timeseries-forecast`)
 
 ## Preserve invariants
 

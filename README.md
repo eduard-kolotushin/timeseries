@@ -7,6 +7,8 @@ Univariate timeseries library for Go. Operations are implemented for correctness
 
 See [docs/INTENTIONS.md](docs/INTENTIONS.md) for scope and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design.
 
+Forecasting lives in the sibling module [`timeseries-forecast`](https://github.com/eduard-kolotushin/timeseries-forecast). Open both with [`../timeseries-workspace.code-workspace`](../timeseries-workspace.code-workspace).
+
 ## Install
 
 ```bash
