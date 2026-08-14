@@ -1,9 +1,6 @@
 package timeseries
 
-import (
-	"math"
-	"time"
-)
+import "math"
 
 // Map applies fn to each value.
 func Map(s Series[float64], fn func(float64) float64) Series[float64] {
@@ -11,10 +8,7 @@ func Map(s Series[float64], fn func(float64) float64) Series[float64] {
 	for i, v := range s.values {
 		values[i] = fn(v)
 	}
-	return Series[float64]{
-		times:  append([]time.Time(nil), s.times...),
-		values: values,
-	}
+	return s.withValues(values)
 }
 
 // AddScalar adds c to each value.
@@ -54,10 +48,7 @@ func binaryOp(a, b Series[float64], op func(float64, float64) float64) Series[fl
 	for i := range left.values {
 		values[i] = op(left.values[i], right.values[i])
 	}
-	return Series[float64]{
-		times:  append([]time.Time(nil), left.times...),
-		values: values,
-	}
+	return left.withValues(values)
 }
 
 // Add returns the element-wise sum of a and b on their inner time join.

@@ -22,10 +22,7 @@ func Rolling(s Series[float64], window int, agg Aggregator) (Series[float64], er
 		}
 		values[i] = agg(s.values[i+1-window : i+1])
 	}
-	return Series[float64]{
-		times:  append([]time.Time(nil), s.times...),
-		values: values,
-	}, nil
+	return s.withValues(values), nil
 }
 
 // RollingDuration applies agg over all points in (t-d, t] at each timestamp t.
@@ -51,8 +48,5 @@ func RollingDuration(s Series[float64], d time.Duration, agg Aggregator) (Series
 		}
 		values[i] = agg(s.values[left : i+1])
 	}
-	return Series[float64]{
-		times:  append([]time.Time(nil), s.times...),
-		values: values,
-	}, nil
+	return s.withValues(values), nil
 }

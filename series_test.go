@@ -49,6 +49,22 @@ func TestNewAndAccessors(t *testing.T) {
 	}
 }
 
+func TestOpsDoNotMutateInput(t *testing.T) {
+	t.Parallel()
+	s := MustNew([]time.Time{tAt(1), tAt(2), tAt(3), tAt(4)}, []float64{1, math.NaN(), 3, 4})
+	orig := cloneSlice(s.values)
+
+	_ = Fill(s, FillForward)
+	_ = Map(s, func(v float64) float64 { return v + 1 })
+	_ = Lag(s, 1)
+	_ = Diff(s, 1)
+	sl := s.Slice(tAt(2), tAt(4))
+	_ = Fill(sl, FillForward)
+	if !equalFloats(s.values, orig) {
+		t.Fatalf("input mutated: %v", s.values)
+	}
+}
+
 func TestEqualFloat(t *testing.T) {
 	t.Parallel()
 	a := MustNew([]time.Time{tAt(1)}, []float64{math.NaN()})

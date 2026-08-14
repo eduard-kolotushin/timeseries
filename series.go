@@ -89,16 +89,12 @@ func (s Series[T]) Value(i int) (T, error) {
 
 // Times returns a copy of the time index.
 func (s Series[T]) Times() []time.Time {
-	out := make([]time.Time, len(s.times))
-	copy(out, s.times)
-	return out
+	return cloneSlice(s.times)
 }
 
 // Values returns a copy of the values.
 func (s Series[T]) Values() []T {
-	out := make([]T, len(s.values))
-	copy(out, s.values)
-	return out
+	return cloneSlice(s.values)
 }
 
 // Points returns a copy of all points.
@@ -113,9 +109,24 @@ func (s Series[T]) Points() []Point[T] {
 // Clone returns a deep copy of the series (copied times and values slices).
 func (s Series[T]) Clone() Series[T] {
 	return Series[T]{
-		times:  s.Times(),
-		values: s.Values(),
+		times:  cloneSlice(s.times),
+		values: cloneSlice(s.values),
 	}
+}
+
+// withValues returns a series that shares s's time index and uses values.
+// values must not alias a backing array that will be mutated later in place.
+func (s Series[T]) withValues(values []T) Series[T] {
+	return Series[T]{times: s.times, values: values}
+}
+
+func cloneSlice[T any](s []T) []T {
+	if len(s) == 0 {
+		return nil
+	}
+	out := make([]T, len(s))
+	copy(out, s)
+	return out
 }
 
 // Equal reports whether a and b have the same times and values.

@@ -52,13 +52,13 @@ func Fill(s Series[float64], method FillMethod) Series[float64] {
 
 // FillWith replaces all NaN values with v.
 func FillWith(s Series[float64], v float64) Series[float64] {
-	values := append([]float64(nil), s.values...)
+	values := cloneSlice(s.values)
 	for i, x := range values {
 		if math.IsNaN(x) {
 			values[i] = v
 		}
 	}
-	return Series[float64]{times: append([]time.Time(nil), s.times...), values: values}
+	return s.withValues(values)
 }
 
 // FillLimit is like Fill but stops after limit consecutive fills (0 = unlimited).
@@ -74,7 +74,7 @@ func FillLimit(s Series[float64], method FillMethod, limit int) Series[float64] 
 }
 
 func fillForward(s Series[float64], limit int) Series[float64] {
-	values := append([]float64(nil), s.values...)
+	values := cloneSlice(s.values)
 	var last float64
 	have := false
 	run := 0
@@ -94,11 +94,11 @@ func fillForward(s Series[float64], limit int) Series[float64] {
 		}
 		values[i] = last
 	}
-	return Series[float64]{times: append([]time.Time(nil), s.times...), values: values}
+	return s.withValues(values)
 }
 
 func fillBackward(s Series[float64], limit int) Series[float64] {
-	values := append([]float64(nil), s.values...)
+	values := cloneSlice(s.values)
 	var next float64
 	have := false
 	run := 0
@@ -119,5 +119,5 @@ func fillBackward(s Series[float64], limit int) Series[float64] {
 		}
 		values[i] = next
 	}
-	return Series[float64]{times: append([]time.Time(nil), s.times...), values: values}
+	return s.withValues(values)
 }

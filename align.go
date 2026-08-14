@@ -20,107 +20,54 @@ const (
 // Align aligns a and b onto a common time index according to how.
 // Missing positions are filled with zero T. For float64 use AlignFloat.
 func Align[T any](a, b Series[T], how JoinHow) (left, right Series[T]) {
-	switch how {
-	case JoinInner:
-		return alignInner(a, b)
-	case JoinLeft:
-		return alignLeft(a, b)
-	default:
-		return alignOuter(a, b)
-	}
-}
-
-func alignInner[T any](a, b Series[T]) (Series[T], Series[T]) {
-	times := make([]time.Time, 0)
-	lv := make([]T, 0)
-	rv := make([]T, 0)
-	i, j := 0, 0
-	for i < a.Len() && j < b.Len() {
-		ta, tb := a.times[i], b.times[j]
-		switch {
-		case ta.Equal(tb):
-			times = append(times, ta)
-			lv = append(lv, a.values[i])
-			rv = append(rv, b.values[j])
-			i++
-			j++
-		case ta.Before(tb):
-			i++
-		default:
-			j++
-		}
-	}
-	return Series[T]{times: times, values: lv}, Series[T]{times: append([]time.Time(nil), times...), values: rv}
-}
-
-func alignLeft[T any](a, b Series[T]) (Series[T], Series[T]) {
-	times := append([]time.Time(nil), a.times...)
-	lv := append([]T(nil), a.values...)
-	rv := make([]T, a.Len())
-	j := 0
-	for i := 0; i < a.Len(); i++ {
-		for j < b.Len() && b.times[j].Before(a.times[i]) {
-			j++
-		}
-		if j < b.Len() && b.times[j].Equal(a.times[i]) {
-			rv[i] = b.values[j]
-		}
-	}
-	return Series[T]{times: times, values: lv}, Series[T]{times: append([]time.Time(nil), times...), values: rv}
-}
-
-func alignOuter[T any](a, b Series[T]) (Series[T], Series[T]) {
-	times := make([]time.Time, 0, a.Len()+b.Len())
-	lv := make([]T, 0, a.Len()+b.Len())
-	rv := make([]T, 0, a.Len()+b.Len())
-	i, j := 0, 0
-	var zero T
-	for i < a.Len() || j < b.Len() {
-		switch {
-		case j >= b.Len() || (i < a.Len() && a.times[i].Before(b.times[j])):
-			times = append(times, a.times[i])
-			lv = append(lv, a.values[i])
-			rv = append(rv, zero)
-			i++
-		case i >= a.Len() || (j < b.Len() && b.times[j].Before(a.times[i])):
-			times = append(times, b.times[j])
-			lv = append(lv, zero)
-			rv = append(rv, b.values[j])
-			j++
-		default:
-			times = append(times, a.times[i])
-			lv = append(lv, a.values[i])
-			rv = append(rv, b.values[j])
-			i++
-			j++
-		}
-	}
-	return Series[T]{times: times, values: lv}, Series[T]{times: append([]time.Time(nil), times...), values: rv}
+	var missing T
+	return align(a, b, how, missing)
 }
 
 // AlignFloat is like Align but fills gaps with NaN.
 func AlignFloat(a, b Series[float64], how JoinHow) (left, right Series[float64]) {
-	left, right = Align(a, b, how)
-	if how == JoinInner {
-		return left, right
-	}
-	// For JoinLeft / JoinOuter, zero-filled gaps should be NaN.
-	// Re-run with NaN awareness by rebuilding from indices.
+	return align(a, b, how, math.NaN())
+}
+
+func align[T any](a, b Series[T], how JoinHow, missing T) (left, right Series[T]) {
 	switch how {
+	case JoinInner:
+		return alignInner(a, b)
 	case JoinLeft:
-		return alignLeftFloat(a, b)
+		return alignLeft(a, b, missing)
 	default:
-		return alignOuterFloat(a, b)
+		return alignOuter(a, b, missing)
 	}
 }
 
-func alignLeftFloat(a, b Series[float64]) (Series[float64], Series[float64]) {
-	times := append([]time.Time(nil), a.times...)
-	lv := append([]float64(nil), a.values...)
-	rv := make([]float64, a.Len())
+func alignInner[T any](a, b Series[T]) (Series[T], Series[T]) {
+	n := min(a.Len(), b.Len())
+	times := make([]time.Time, 0, n)
+	lv := make([]T, 0, n)
+	rv := make([]T, 0, n)
+	i, j := 0, 0
+	for i < a.Len() && j < b.Len() {
+		switch a.times[i].Compare(b.times[j]) {
+		case 0:
+			times = append(times, a.times[i])
+			lv = append(lv, a.values[i])
+			rv = append(rv, b.values[j])
+			i++
+			j++
+		case -1:
+			i++
+		default:
+			j++
+		}
+	}
+	return Series[T]{times: times, values: lv}, Series[T]{times: times, values: rv}
+}
+
+func alignLeft[T any](a, b Series[T], missing T) (Series[T], Series[T]) {
+	rv := make([]T, a.Len())
 	j := 0
 	for i := 0; i < a.Len(); i++ {
-		rv[i] = math.NaN()
+		rv[i] = missing
 		for j < b.Len() && b.times[j].Before(a.times[i]) {
 			j++
 		}
@@ -128,25 +75,25 @@ func alignLeftFloat(a, b Series[float64]) (Series[float64], Series[float64]) {
 			rv[i] = b.values[j]
 		}
 	}
-	return Series[float64]{times: times, values: lv}, Series[float64]{times: append([]time.Time(nil), times...), values: rv}
+	return a, Series[T]{times: a.times, values: rv}
 }
 
-func alignOuterFloat(a, b Series[float64]) (Series[float64], Series[float64]) {
-	times := make([]time.Time, 0, a.Len()+b.Len())
-	lv := make([]float64, 0, a.Len()+b.Len())
-	rv := make([]float64, 0, a.Len()+b.Len())
+func alignOuter[T any](a, b Series[T], missing T) (Series[T], Series[T]) {
+	capn := a.Len() + b.Len()
+	times := make([]time.Time, 0, capn)
+	lv := make([]T, 0, capn)
+	rv := make([]T, 0, capn)
 	i, j := 0, 0
-	nan := math.NaN()
 	for i < a.Len() || j < b.Len() {
 		switch {
 		case j >= b.Len() || (i < a.Len() && a.times[i].Before(b.times[j])):
 			times = append(times, a.times[i])
 			lv = append(lv, a.values[i])
-			rv = append(rv, nan)
+			rv = append(rv, missing)
 			i++
 		case i >= a.Len() || (j < b.Len() && b.times[j].Before(a.times[i])):
 			times = append(times, b.times[j])
-			lv = append(lv, nan)
+			lv = append(lv, missing)
 			rv = append(rv, b.values[j])
 			j++
 		default:
@@ -157,7 +104,7 @@ func alignOuterFloat(a, b Series[float64]) (Series[float64], Series[float64]) {
 			j++
 		}
 	}
-	return Series[float64]{times: times, values: lv}, Series[float64]{times: append([]time.Time(nil), times...), values: rv}
+	return Series[T]{times: times, values: lv}, Series[T]{times: times, values: rv}
 }
 
 // ConflictFunc resolves two values at the same timestamp during Merge.
@@ -213,7 +160,12 @@ func Concat[T any](a, b Series[T]) (Series[T], error) {
 		}
 		return Series[T]{}, ErrUnsorted
 	}
-	times := append(append([]time.Time(nil), a.times...), b.times...)
-	values := append(append([]T(nil), a.values...), b.values...)
+	n := a.Len() + b.Len()
+	times := make([]time.Time, n)
+	values := make([]T, n)
+	copy(times, a.times)
+	copy(times[a.Len():], b.times)
+	copy(values, a.values)
+	copy(values[a.Len():], b.values)
 	return Series[T]{times: times, values: values}, nil
 }

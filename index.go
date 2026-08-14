@@ -1,7 +1,6 @@
 package timeseries
 
 import (
-	"cmp"
 	"slices"
 	"time"
 )
@@ -10,9 +9,7 @@ import (
 // times must be sorted ascending (UTC).
 func searchTime(times []time.Time, t time.Time) int {
 	t = t.UTC()
-	i, found := slices.BinarySearchFunc(times, t, func(a, b time.Time) int {
-		return cmp.Compare(a.UnixNano(), b.UnixNano())
-	})
+	i, found := slices.BinarySearchFunc(times, t, time.Time.Compare)
 	if !found {
 		return -1
 	}
@@ -22,18 +19,14 @@ func searchTime(times []time.Time, t time.Time) int {
 // lowerBound returns the first index i in times such that times[i] >= t.
 func lowerBound(times []time.Time, t time.Time) int {
 	t = t.UTC()
-	i, _ := slices.BinarySearchFunc(times, t, func(a, b time.Time) int {
-		return cmp.Compare(a.UnixNano(), b.UnixNano())
-	})
+	i, _ := slices.BinarySearchFunc(times, t, time.Time.Compare)
 	return i
 }
 
 // upperBound returns the first index i in times such that times[i] > t.
 func upperBound(times []time.Time, t time.Time) int {
 	t = t.UTC()
-	i, found := slices.BinarySearchFunc(times, t, func(a, b time.Time) int {
-		return cmp.Compare(a.UnixNano(), b.UnixNano())
-	})
+	i, found := slices.BinarySearchFunc(times, t, time.Time.Compare)
 	if found {
 		return i + 1
 	}

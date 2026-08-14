@@ -1,6 +1,6 @@
 # timeseries
 
-Univariate timeseries library for Go.
+Univariate timeseries library for Go. Operations are implemented for correctness and for low allocation on sorted indexes.
 
 **Module:** `github.com/eduard-kolotushin/timeseries`  
 **Go:** 1.26+
@@ -62,6 +62,7 @@ func main() {
 - Resample buckets are left-closed, right-open: `[t, t+d)`
 - Public operations return new series (inputs are not mutated)
 - `Div` yields `NaN` on division by zero
+- Ops that only rewrite values reuse the time index internally; `Times()` / `Values()` still return copies
 
 ## Agents
 

@@ -153,33 +153,24 @@ func Resample(s Series[float64], every time.Duration, agg Aggregator) (Series[fl
 	}
 
 	origin := s.times[0]
-	type bucket struct {
-		start  time.Time
-		values []float64
-	}
-	var buckets []bucket
-
-	for i := range s.times {
-		t := s.times[i]
-		offset := t.Sub(origin)
+	times := make([]time.Time, 0, s.Len())
+	values := make([]float64, 0, s.Len())
+	start := 0
+	for start < s.Len() {
+		offset := s.times[start].Sub(origin)
 		n := offset / every
 		if offset < 0 {
-			// should not happen for sorted series starting at origin
 			n = (offset - every + 1) / every
 		}
-		start := origin.Add(n * every)
-		if len(buckets) == 0 || !buckets[len(buckets)-1].start.Equal(start) {
-			buckets = append(buckets, bucket{start: start, values: []float64{s.values[i]}})
-		} else {
-			buckets[len(buckets)-1].values = append(buckets[len(buckets)-1].values, s.values[i])
+		bucketStart := origin.Add(n * every)
+		bucketEnd := bucketStart.Add(every)
+		end := start + 1
+		for end < s.Len() && s.times[end].Before(bucketEnd) {
+			end++
 		}
-	}
-
-	times := make([]time.Time, len(buckets))
-	values := make([]float64, len(buckets))
-	for i, b := range buckets {
-		times[i] = b.start
-		values[i] = agg(b.values)
+		times = append(times, bucketStart)
+		values = append(values, agg(s.values[start:end]))
+		start = end
 	}
 	return Series[float64]{times: times, values: values}, nil
 }
@@ -196,7 +187,7 @@ func Upsample(s Series[float64], start, end time.Time, step time.Duration, metho
 	if err != nil {
 		return Series[float64]{}, err
 	}
-	return Interpolate(s, grid, method)
+	return interpolateOnto(s, grid, method), nil
 }
 
 // AsRegular reindexes s onto [start, end) with step using the given interpolation method.

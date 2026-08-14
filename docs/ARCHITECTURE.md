@@ -6,7 +6,7 @@ Single package `timeseries`. Files by concern:
 
 | File | Responsibility |
 | --- | --- |
-| `series.go` | `Series[T]`, `Point[T]`, constructors, accessors |
+| `series.go` | `Series[T]`, `Point[T]`, constructors, accessors, clone helpers |
 | `index.go` | Sorted time index helpers, binary search |
 | `mutate.go` | Slice, filter, clone, append, upsert, delete |
 | `align.go` | Align, merge, join |
@@ -48,6 +48,19 @@ For `float64`, missing is `math.NaN()`. Fill, DropNA, interpolate, and numeric o
 - **Methods on `Series[T]`:** structural ops (Len, Slice, Filter, Clone, Append, …)
 - **Package functions on `Series[float64]`:** numeric ops (`Add`, `Fill`, `Resample`, `Rolling`, …)
 
+## Performance
+
+Optimize by default. Public behavior stays immutable; internals may share storage.
+
+- **Share the time index** when an op only rewrites values (`withValues`).
+- **Never mutate** `times` or `values` in place on an existing series. Allocate a new values slice, then attach it. Structural ops that grow/shrink must copy (or use a 3-index subslice so `append` cannot clobber a parent).
+- **Pre-size** output slices (`make(..., 0, n)` or `make(..., n)`).
+- **Merge/search** with two pointers or binary search; no per-point hidden sorts.
+- **Skip a second `New`** when the op already produced a valid UTC, unique, sorted index.
+- **Special-case same-index math** (lag/diff/pct_change) instead of going through generic align.
+- Public `Times()`, `Values()`, and `Clone()` copy so callers cannot alias internals.
+- Benchmarks live in `bench_test.go` for fill, lag, rolling, resample, interpolate, and arithmetic.
+
 ## Errors
 
 - Validate at construction (`New`, `FromPoints`)
@@ -62,3 +75,4 @@ Table-driven unit tests in `*_test.go` beside each concern. Cover:
 - Align join modes
 - Fill edge cases (leading/trailing NaN)
 - Resample bucket boundaries `[t, t+d)`
+- Input isolation (ops must not mutate the caller’s series)

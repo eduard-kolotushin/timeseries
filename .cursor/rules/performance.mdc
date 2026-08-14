@@ -1,0 +1,24 @@
+---
+description: Performance conventions for timeseries operations
+alwaysApply: true
+---
+
+# Performance
+
+This library must be fast as well as correct. Follow [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Do
+
+- Reuse the time index when an op only changes values (`withValues`)
+- Pre-size slices to the output length
+- Use two-pointer merges and binary search on the sorted index
+- Special-case same-index float64 ops (lag, diff, arithmetic) instead of generic align
+- Add/update `bench_test.go` when changing fill, rolling, resample, interpolate, or math
+
+## Do not
+
+- Copy `times` just because `values` changed
+- Call `New` again after you already built a valid index
+- Mutate a series’ backing slices in place
+- Introduce O(n²) nested scans over the series
+- Add SIMD, GPU, or a parallel API without updating INTENTIONS

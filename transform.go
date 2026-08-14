@@ -1,9 +1,6 @@
 package timeseries
 
-import (
-	"math"
-	"time"
-)
+import "math"
 
 // Lag shifts values forward by n positions; the first n values become NaN.
 func Lag(s Series[float64], n int) Series[float64] {
@@ -18,7 +15,7 @@ func Lag(s Series[float64], n int) Series[float64] {
 			values[i] = s.values[i-n]
 		}
 	}
-	return Series[float64]{times: append([]time.Time(nil), s.times...), values: values}
+	return s.withValues(values)
 }
 
 // Lead shifts values backward by n positions; the last n values become NaN.
@@ -34,7 +31,7 @@ func Lead(s Series[float64], n int) Series[float64] {
 			values[i] = s.values[i+n]
 		}
 	}
-	return Series[float64]{times: append([]time.Time(nil), s.times...), values: values}
+	return s.withValues(values)
 }
 
 // Diff returns s - Lag(s, n).
@@ -42,7 +39,15 @@ func Diff(s Series[float64], n int) Series[float64] {
 	if n <= 0 {
 		n = 1
 	}
-	return Sub(s, Lag(s, n))
+	values := make([]float64, s.Len())
+	for i := range values {
+		if i < n {
+			values[i] = math.NaN()
+			continue
+		}
+		values[i] = s.values[i] - s.values[i-n]
+	}
+	return s.withValues(values)
 }
 
 // PctChange returns (s - Lag(s, n)) / Lag(s, n). Division by zero yields NaN.
@@ -50,8 +55,20 @@ func PctChange(s Series[float64], n int) Series[float64] {
 	if n <= 0 {
 		n = 1
 	}
-	lagged := Lag(s, n)
-	return Div(Sub(s, lagged), lagged)
+	values := make([]float64, s.Len())
+	for i := range values {
+		if i < n {
+			values[i] = math.NaN()
+			continue
+		}
+		prev := s.values[i-n]
+		if prev == 0 {
+			values[i] = math.NaN()
+			continue
+		}
+		values[i] = (s.values[i] - prev) / prev
+	}
+	return s.withValues(values)
 }
 
 // CumSum returns the cumulative sum, skipping NaNs (NaN positions stay NaN and do not reset the sum).
@@ -66,7 +83,7 @@ func CumSum(s Series[float64]) Series[float64] {
 		sum += v
 		values[i] = sum
 	}
-	return Series[float64]{times: append([]time.Time(nil), s.times...), values: values}
+	return s.withValues(values)
 }
 
 // CumMax returns the cumulative maximum; NaN positions stay NaN.
@@ -85,7 +102,7 @@ func CumMax(s Series[float64]) Series[float64] {
 		}
 		values[i] = max
 	}
-	return Series[float64]{times: append([]time.Time(nil), s.times...), values: values}
+	return s.withValues(values)
 }
 
 // CumMin returns the cumulative minimum; NaN positions stay NaN.
@@ -104,5 +121,5 @@ func CumMin(s Series[float64]) Series[float64] {
 		}
 		values[i] = min
 	}
-	return Series[float64]{times: append([]time.Time(nil), s.times...), values: values}
+	return s.withValues(values)
 }

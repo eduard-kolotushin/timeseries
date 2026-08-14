@@ -2,6 +2,7 @@ package timeseries
 
 import (
 	"math"
+	"slices"
 	"time"
 )
 
@@ -17,71 +18,65 @@ const (
 
 // Interpolate evaluates s at the given times.
 // Times outside the series range become NaN.
-// Target times need not be sorted but the result is sorted ascending;
-// duplicates in times are rejected via New.
+// Target times need not be sorted; the result is sorted ascending with duplicates dropped.
 func Interpolate(s Series[float64], times []time.Time, method InterpMethod) (Series[float64], error) {
 	if len(times) == 0 {
 		return Series[float64]{}, nil
 	}
-	// Sort/unique via constructing after computing values on sorted unique times.
-	// Normalize and sort a copy.
-	sorted := append([]time.Time(nil), times...)
-	for i := range sorted {
-		sorted[i] = sorted[i].UTC()
+	sorted := make([]time.Time, len(times))
+	for i, t := range times {
+		sorted[i] = t.UTC()
 	}
-	// insertion sort is fine for typical grids; use simple sort
-	for i := 1; i < len(sorted); i++ {
-		j := i
-		for j > 0 && sorted[j].Before(sorted[j-1]) {
-			sorted[j], sorted[j-1] = sorted[j-1], sorted[j]
-			j--
-		}
-	}
-	// dedupe
+	slices.SortFunc(sorted, time.Time.Compare)
 	uniq := sorted[:0]
 	for i, t := range sorted {
 		if i == 0 || !t.Equal(sorted[i-1]) {
 			uniq = append(uniq, t)
 		}
 	}
-	sorted = uniq
-
-	values := make([]float64, len(sorted))
-	for i, t := range sorted {
-		values[i] = interpolateAt(s, t, method)
-	}
-	return New(sorted, values)
+	return interpolateOnto(s, uniq, method), nil
 }
 
-func interpolateAt(s Series[float64], t time.Time, method InterpMethod) float64 {
-	if s.Empty() {
-		return math.NaN()
+// interpolateOnto evaluates s at times. times must be UTC, strictly ascending, and unique.
+// The returned series takes ownership of times.
+func interpolateOnto(s Series[float64], times []time.Time, method InterpMethod) Series[float64] {
+	values := make([]float64, len(times))
+	j := 0
+	n := s.Len()
+	for i, t := range times {
+		for j < n && s.times[j].Before(t) {
+			j++
+		}
+		if j < n && s.times[j].Equal(t) {
+			values[i] = s.values[j]
+			continue
+		}
+		switch method {
+		case InterpStep:
+			if j == 0 {
+				values[i] = math.NaN()
+			} else {
+				values[i] = s.values[j-1]
+			}
+		default:
+			if j == 0 || j >= n {
+				values[i] = math.NaN()
+				continue
+			}
+			t0, t1 := s.times[j-1], s.times[j]
+			v0, v1 := s.values[j-1], s.values[j]
+			if math.IsNaN(v0) || math.IsNaN(v1) {
+				values[i] = math.NaN()
+				continue
+			}
+			span := t1.Sub(t0)
+			if span == 0 {
+				values[i] = v0
+				continue
+			}
+			w := float64(t.Sub(t0)) / float64(span)
+			values[i] = v0*(1-w) + v1*w
+		}
 	}
-	t = t.UTC()
-	if i := searchTime(s.times, t); i >= 0 {
-		return s.values[i]
-	}
-	i := lowerBound(s.times, t)
-	switch method {
-	case InterpStep:
-		if i == 0 {
-			return math.NaN()
-		}
-		return s.values[i-1]
-	default: // InterpLinear
-		if i == 0 || i >= s.Len() {
-			return math.NaN()
-		}
-		t0, t1 := s.times[i-1], s.times[i]
-		v0, v1 := s.values[i-1], s.values[i]
-		if math.IsNaN(v0) || math.IsNaN(v1) {
-			return math.NaN()
-		}
-		span := t1.Sub(t0).Seconds()
-		if span == 0 {
-			return v0
-		}
-		w := t.Sub(t0).Seconds() / span
-		return v0*(1-w) + v1*w
-	}
+	return Series[float64]{times: times, values: values}
 }

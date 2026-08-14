@@ -24,3 +24,4 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full detail.
 - Table-driven tests next to code
 - No drive-by refactors outside the task
 - Keep public API documented and stable within v1
+- Hot paths: share `times` when only values change; pre-size; never mutate backing arrays in place

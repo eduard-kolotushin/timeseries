@@ -4,15 +4,15 @@ Operating manual for agents working in this repository.
 
 ## Project
 
-Reusable Go timeseries library: univariate `Series[T]` with float64 numeric helpers.
+Reusable Go timeseries library: univariate `Series[T]` with float64 numeric helpers, implemented for correctness **and** performance.
 
 - **Module:** `github.com/eduard-kolotushin/timeseries`
 - **Go:** 1.26+
 
 ## Read first
 
-1. [docs/INTENTIONS.md](docs/INTENTIONS.md) — product scope and non-goals
-2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layout, invariants, API conventions
+1. [docs/INTENTIONS.md](docs/INTENTIONS.md) — product scope, non-goals, performance aims
+2. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — layout, invariants, API and performance conventions
 
 Cursor rules in [`.cursor/rules/`](.cursor/rules/) summarize the same constraints for every session.
 
@@ -24,6 +24,7 @@ Cursor rules in [`.cursor/rules/`](.cursor/rules/) summarize the same constraint
 - Times are UTC, strictly ascending, unique (duplicates rejected)
 - Missing float64 values use `math.NaN()`
 - Stay within v1 scope unless `docs/INTENTIONS.md` is updated first
+- Implement ops efficiently: share time indexes, pre-size, linear scans
 
 ## v1 in scope
 
@@ -31,7 +32,7 @@ Construction, slice/filter, merge/align, DropNA/fill, resample/upsample/downsamp
 
 ## v1 out of scope
 
-Multi-column DataFrame, CSV/JSON I/O, plotting, OHLC bars, business calendars, concurrency-safe shared mutation.
+Multi-column DataFrame, CSV/JSON I/O, plotting, OHLC bars, business calendars, concurrency-safe shared mutation, SIMD/GPU kernels.
 
 ## Workflow
 
@@ -39,3 +40,4 @@ Multi-column DataFrame, CSV/JSON I/O, plotting, OHLC bars, business calendars, c
 - Document public API and bucket semantics (`[t, t+d)` for resample)
 - Do not expand scope (DataFrame/IO/plotting) without updating INTENTIONS
 - Keep changes focused; avoid unrelated refactors
+- When touching a hot path, keep or add a benchmark in `bench_test.go`

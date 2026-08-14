@@ -9,8 +9,8 @@ func (s Series[T]) SliceIndex(i, j int) (Series[T], error) {
 		return Series[T]{}, ErrIndexOutOfRange
 	}
 	return Series[T]{
-		times:  append([]time.Time(nil), s.times[i:j]...),
-		values: append([]T(nil), s.values[i:j]...),
+		times:  s.times[i:j:j],
+		values: s.values[i:j:j],
 	}, nil
 }
 
@@ -72,8 +72,12 @@ func (s Series[T]) Append(t time.Time, v T) (Series[T], error) {
 			return Series[T]{}, ErrUnsorted
 		}
 	}
-	times := append(append([]time.Time(nil), s.times...), t)
-	values := append(append([]T(nil), s.values...), v)
+	times := make([]time.Time, len(s.times)+1)
+	values := make([]T, len(s.values)+1)
+	copy(times, s.times)
+	copy(values, s.values)
+	times[len(s.times)] = t
+	values[len(s.values)] = v
 	return Series[T]{times: times, values: values}, nil
 }
 
@@ -82,10 +86,9 @@ func (s Series[T]) Upsert(t time.Time, v T) Series[T] {
 	t = t.UTC()
 	i := lowerBound(s.times, t)
 	if i < len(s.times) && s.times[i].Equal(t) {
-		times := append([]time.Time(nil), s.times...)
-		values := append([]T(nil), s.values...)
+		values := cloneSlice(s.values)
 		values[i] = v
-		return Series[T]{times: times, values: values}
+		return s.withValues(values)
 	}
 	times := make([]time.Time, 0, len(s.times)+1)
 	values := make([]T, 0, len(s.values)+1)
@@ -103,7 +106,12 @@ func (s Series[T]) DeleteAt(i int) (Series[T], error) {
 	if i < 0 || i >= len(s.times) {
 		return Series[T]{}, ErrIndexOutOfRange
 	}
-	times := append(append([]time.Time(nil), s.times[:i]...), s.times[i+1:]...)
-	values := append(append([]T(nil), s.values[:i]...), s.values[i+1:]...)
+	n := len(s.times) - 1
+	times := make([]time.Time, n)
+	values := make([]T, n)
+	copy(times, s.times[:i])
+	copy(times[i:], s.times[i+1:])
+	copy(values, s.values[:i])
+	copy(values[i:], s.values[i+1:])
 	return Series[T]{times: times, values: values}, nil
 }

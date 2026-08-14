@@ -26,3 +26,7 @@ Do **not** add without updating INTENTIONS first:
 - `math.NaN()` marks missing float64 values
 - Resample buckets are `[t, t+d)`
 - Public ops return new series; do not mutate caller data
+
+## Optimize as you implement
+
+Correctness first, then cost: linear scans, shared time indexes, no extra copies. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
