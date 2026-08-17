@@ -41,3 +41,4 @@ Multi-column DataFrame, CSV/JSON I/O, plotting (see sibling `timeseries-grafana`
 - Do not expand scope (DataFrame/IO/plotting) without updating INTENTIONS
 - Keep changes focused; avoid unrelated refactors
 - When touching a hot path, keep or add a benchmark in `bench_test.go`
+- GitHub Actions on `main`: `gofmt` and `go test ./...`

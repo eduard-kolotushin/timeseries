@@ -60,3 +60,4 @@ Do not add these without first updating this document:
 - Public operations return new series; inputs are not mutated
 - Table-driven tests cover fill, align, and resample edge cases
 - Hot-path ops stay allocation-aware; public `Times()` / `Values()` still return copies
+- GitHub Actions on `main` runs `gofmt` and `go test ./...`
