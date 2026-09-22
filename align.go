@@ -13,12 +13,17 @@ const (
 	JoinInner JoinHow = iota
 	// JoinOuter keeps the union of timestamps; gaps get the zero value (NaN for float helpers).
 	JoinOuter
-	// JoinLeft keeps timestamps from the left series.
+	// JoinLeft keeps timestamps from the left series. The left result is the left
+	// input itself, sharing its time index and values instead of copying them
+	// (O(1)); see Align. Clone it when an independent copy is needed.
 	JoinLeft
 )
 
 // Align aligns a and b onto a common time index according to how.
 // Missing positions are filled with zero T. For float64 use AlignFloat.
+// Both results are aligned onto the joined index; with JoinLeft the left result
+// is the left input with its slices shared (nothing mutates a series in place)
+// and the right result is newly allocated.
 func Align[T any](a, b Series[T], how JoinHow) (left, right Series[T]) {
 	var missing T
 	return align(a, b, how, missing)
@@ -63,6 +68,10 @@ func alignInner[T any](a, b Series[T]) (Series[T], Series[T]) {
 	return Series[T]{times: times, values: lv}, Series[T]{times: times, values: rv}
 }
 
+// alignLeft keeps a's index and returns a itself as the left result: no op
+// mutates times or values in place and Times/Values/Points copy, so sharing a's
+// slices is unobservable from the public API and saves an O(n) copy. The right
+// result is new; it shares a's time index (the joined grid) and never aliases b.
 func alignLeft[T any](a, b Series[T], missing T) (Series[T], Series[T]) {
 	rv := make([]T, a.Len())
 	j := 0

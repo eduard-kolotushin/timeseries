@@ -27,6 +27,36 @@ func TestAlignJoins(t *testing.T) {
 	}
 }
 
+func TestJoinLeftSharesTheLeftSeries(t *testing.T) {
+	t.Parallel()
+	a := MustNew([]time.Time{tAt(1), tAt(2)}, []float64{1, 2})
+	b := MustNew([]time.Time{tAt(2), tAt(3)}, []float64{20, 30})
+	ll, rl := AlignFloat(a, b, JoinLeft)
+
+	// Documented contract: the left result is the left input itself, sharing its
+	// time index and values (O(1), no copy) because no op mutates a series in
+	// place and Times/Values/Points copy. Pinned so a future change to that
+	// ownership cannot slip through unnoticed.
+	if ll.Len() != a.Len() || &ll.times[0] != &a.times[0] || &ll.values[0] != &a.values[0] {
+		t.Fatal("left result must be the left series itself")
+	}
+	if !equalFloats(ll.values, []float64{1, 2}) {
+		t.Fatalf("left values = %v", ll.values)
+	}
+	mapped := ll.Values()
+	mapped[0] = 99
+	if ll.values[0] != 1 {
+		t.Fatal("Values() must copy, so the sharing stays unobservable")
+	}
+	// The right result is aligned onto the left index, not onto b's.
+	if len(rl.times) != 2 || &rl.times[0] != &a.times[0] {
+		t.Fatal("right result must use the left index")
+	}
+	if !math.IsNaN(rl.values[0]) || rl.values[1] != 20 {
+		t.Fatalf("right values = %v", rl.values)
+	}
+}
+
 func TestMergeConcat(t *testing.T) {
 	t.Parallel()
 	a := MustNew([]time.Time{tAt(1), tAt(3)}, []float64{1, 3})

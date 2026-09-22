@@ -26,6 +26,55 @@ func TestNewInvariants(t *testing.T) {
 	}
 }
 
+func TestFromPointsBuildsAndValidatesInOnePass(t *testing.T) {
+	t.Parallel()
+	points := []Point[float64]{{Time: tAt(1), Value: 10}, {Time: tAt(2), Value: 20}}
+	s, err := FromPoints(points)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The series owns its slices: rewriting the caller's points changes nothing.
+	points[0] = Point[float64]{Time: tAt(9), Value: 99}
+	if !equalFloats(s.Values(), []float64{10, 20}) || !s.Times()[0].Equal(tAt(1)) {
+		t.Fatalf("series follows the caller's slice: %v %v", s.Times(), s.Values())
+	}
+	// The same index validation as New.
+	if _, err := FromPoints([]Point[float64]{{Time: tAt(2), Value: 1}, {Time: tAt(1), Value: 2}}); err != ErrUnsorted {
+		t.Fatalf("got %v, want ErrUnsorted", err)
+	}
+	if _, err := FromPoints([]Point[float64]{{Time: tAt(1), Value: 1}, {Time: tAt(1), Value: 2}}); err != ErrDuplicateTime {
+		t.Fatalf("got %v, want ErrDuplicateTime", err)
+	}
+	if got, err := FromPoints([]Point[float64]{}); err != nil || !got.Empty() {
+		t.Fatalf("empty series: len=%d err=%v", got.Len(), err)
+	}
+	// Times are normalized to UTC, as in New.
+	aware := time.Date(2026, 1, 1, 12, 0, 0, 0, time.FixedZone("x", 3600))
+	z, err := FromPoints([]Point[float64]{{Time: aware, Value: 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := z.Times()[0]; got.Location() != time.UTC || !got.Equal(aware) {
+		t.Fatalf("time = %v (%v), want the same instant in UTC", got, got.Location())
+	}
+}
+
+func TestFromPointsAllocation(t *testing.T) {
+	// No t.Parallel: AllocsPerRun panics inside a parallel test.
+	// FromPoints builds and validates one pair of slices; it must not also copy
+	// them through New (docs/ARCHITECTURE.md: "Skip a second New when the op
+	// already produced a valid UTC, unique, sorted index").
+	points := []Point[float64]{{Time: tAt(1), Value: 10}, {Time: tAt(2), Value: 20}}
+	allocs := testing.AllocsPerRun(50, func() {
+		if _, err := FromPoints(points); err != nil {
+			panic(err)
+		}
+	})
+	if allocs != 2 {
+		t.Fatalf("FromPoints allocates %v times, want 2 (times + values)", allocs)
+	}
+}
+
 func TestNewAndAccessors(t *testing.T) {
 	t.Parallel()
 	s, err := New([]time.Time{tAt(1), tAt(2)}, []float64{10, 20})

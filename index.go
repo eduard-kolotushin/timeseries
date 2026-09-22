@@ -41,19 +41,30 @@ func validateIndex[T any](times []time.Time, values []T) ([]time.Time, []T, erro
 	}
 	outT := make([]time.Time, len(times))
 	outV := make([]T, len(values))
+	copy(outT, times)
 	copy(outV, values)
-	for i, t := range times {
-		outT[i] = t.UTC()
-		if i > 0 {
-			prev := outT[i-1]
-			cur := outT[i]
-			switch {
-			case cur.Equal(prev):
-				return nil, nil, ErrDuplicateTime
-			case cur.Before(prev):
-				return nil, nil, ErrUnsorted
-			}
-		}
+	if err := normalizeIndex(outT); err != nil {
+		return nil, nil, err
 	}
 	return outT, outV, nil
+}
+
+// normalizeIndex rewrites times in place to UTC and rejects duplicate or
+// descending timestamps. The caller must own times: New copies first, and
+// FromPoints passes the slice it just built.
+func normalizeIndex(times []time.Time) error {
+	for i := range times {
+		t := times[i].UTC()
+		times[i] = t
+		if i == 0 {
+			continue
+		}
+		switch prev := times[i-1]; {
+		case t.Equal(prev):
+			return ErrDuplicateTime
+		case t.Before(prev):
+			return ErrUnsorted
+		}
+	}
+	return nil
 }

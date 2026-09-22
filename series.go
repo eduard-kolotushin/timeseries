@@ -28,6 +28,7 @@ func New[T any](times []time.Time, values []T) (Series[T], error) {
 }
 
 // FromPoints builds a Series from points in time order.
+// It builds and validates in one pass (no second copy through New).
 func FromPoints[T any](points []Point[T]) (Series[T], error) {
 	times := make([]time.Time, len(points))
 	values := make([]T, len(points))
@@ -35,7 +36,10 @@ func FromPoints[T any](points []Point[T]) (Series[T], error) {
 		times[i] = p.Time
 		values[i] = p.Value
 	}
-	return New(times, values)
+	if err := normalizeIndex(times); err != nil {
+		return Series[T]{}, err
+	}
+	return Series[T]{times: times, values: values}, nil
 }
 
 // MustNew is like New but panics on error. Intended for tests and fixtures.

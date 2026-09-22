@@ -28,6 +28,26 @@ func TestResampleBuckets(t *testing.T) {
 	}
 }
 
+func TestResampleBucketsFromFirstTimestamp(t *testing.T) {
+	t.Parallel()
+	// Bucket starts are measured from the first timestamp, not from the epoch:
+	// 2s buckets over points at 5..9 are [5,7), [7,9), [9,11).
+	s := MustNew(
+		[]time.Time{tAt(5), tAt(6), tAt(7), tAt(8), tAt(9)},
+		[]float64{1, 2, 3, 4, 5},
+	)
+	r, err := Resample(s, 2*time.Second, AggSum)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Len() != 3 || r.values[0] != 3 || r.values[1] != 7 || r.values[2] != 5 {
+		t.Fatalf("values = %v, want [3 7 5]", r.Values())
+	}
+	if !r.times[0].Equal(tAt(5)) || !r.times[1].Equal(tAt(7)) || !r.times[2].Equal(tAt(9)) {
+		t.Fatalf("times = %v, want 5s, 7s, 9s", r.Times())
+	}
+}
+
 func TestInterpolateAndUpsample(t *testing.T) {
 	t.Parallel()
 	s := MustNew([]time.Time{tAt(0), tAt(2)}, []float64{0, 10})

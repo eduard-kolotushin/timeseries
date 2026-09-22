@@ -157,11 +157,10 @@ func Resample(s Series[float64], every time.Duration, agg Aggregator) (Series[fl
 	values := make([]float64, 0, s.Len())
 	start := 0
 	for start < s.Len() {
+		// offset is measured from times[0] and the index ascends, so it is never
+		// negative: truncating division is already the bucket floor.
 		offset := s.times[start].Sub(origin)
 		n := offset / every
-		if offset < 0 {
-			n = (offset - every + 1) / every
-		}
 		bucketStart := origin.Add(n * every)
 		bucketEnd := bucketStart.Add(every)
 		end := start + 1
