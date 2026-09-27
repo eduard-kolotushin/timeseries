@@ -33,12 +33,14 @@ func Trim(s Series[float64]) Series[float64] {
 	for end > start && math.IsNaN(s.values[end-1]) {
 		end--
 	}
+	// start <= end by construction, so the index error is unreachable.
 	out, _ := s.SliceIndex(start, end)
 	return out
 }
 
 // Fill replaces NaN values according to method.
-// For FillValue, use FillWith instead.
+// FillValue delegates to FillWith(s, 0) and ignores any constant you might expect to
+// pass here, so call FillWith for a chosen value.
 func Fill(s Series[float64], method FillMethod) Series[float64] {
 	switch method {
 	case FillBackward:
@@ -62,6 +64,8 @@ func FillWith(s Series[float64], v float64) Series[float64] {
 }
 
 // FillLimit is like Fill but stops after limit consecutive fills (0 = unlimited).
+// FillValue delegates to FillWith(s, 0), which fills every NaN: limit does not apply
+// to it.
 func FillLimit(s Series[float64], method FillMethod, limit int) Series[float64] {
 	switch method {
 	case FillBackward:

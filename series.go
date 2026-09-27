@@ -134,7 +134,7 @@ func cloneSlice[T any](s []T) []T {
 }
 
 // Equal reports whether a and b have the same times and values.
-// For float64, NaNs compare equal to NaNs.
+// NaN values compare unequal, by Go's !=; use EqualFloat for float64 series.
 func Equal[T comparable](a, b Series[T]) bool {
 	if a.Len() != b.Len() {
 		return false

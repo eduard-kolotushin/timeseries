@@ -6,6 +6,20 @@ import (
 	"time"
 )
 
+func TestWindowAndDurationArgumentErrors(t *testing.T) {
+	t.Parallel()
+	s := MustNew([]time.Time{tAt(1), tAt(2)}, []float64{1, 2})
+	if _, err := Rolling(s, 0, AggSum); err != ErrInvalidWindow {
+		t.Fatalf("Rolling(0) = %v, want ErrInvalidWindow", err)
+	}
+	if _, err := RollingDuration(s, 0, AggSum); err != ErrInvalidDuration {
+		t.Fatalf("RollingDuration(0) = %v, want ErrInvalidDuration", err)
+	}
+	if _, err := Resample(s, 0, AggMean); err != ErrInvalidDuration {
+		t.Fatalf("Resample(0) = %v, want ErrInvalidDuration", err)
+	}
+}
+
 func TestRolling(t *testing.T) {
 	t.Parallel()
 	s := MustNew([]time.Time{tAt(1), tAt(2), tAt(3), tAt(4)}, []float64{1, 2, 3, 4})

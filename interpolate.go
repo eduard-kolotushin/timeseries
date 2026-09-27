@@ -19,6 +19,7 @@ const (
 // Interpolate evaluates s at the given times.
 // Times outside the series range become NaN.
 // Target times need not be sorted; the result is sorted ascending with duplicates dropped.
+// The error return is always nil; it mirrors Upsample, which validates its step.
 func Interpolate(s Series[float64], times []time.Time, method InterpMethod) (Series[float64], error) {
 	if len(times) == 0 {
 		return Series[float64]{}, nil
@@ -53,7 +54,7 @@ func interpolateOnto(s Series[float64], times []time.Time, method InterpMethod) 
 		}
 		switch method {
 		case InterpStep:
-			if j == 0 {
+			if j == 0 || j >= n {
 				values[i] = math.NaN()
 			} else {
 				values[i] = s.values[j-1]

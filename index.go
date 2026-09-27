@@ -23,16 +23,6 @@ func lowerBound(times []time.Time, t time.Time) int {
 	return i
 }
 
-// upperBound returns the first index i in times such that times[i] > t.
-func upperBound(times []time.Time, t time.Time) int {
-	t = t.UTC()
-	i, found := slices.BinarySearchFunc(times, t, time.Time.Compare)
-	if found {
-		return i + 1
-	}
-	return i
-}
-
 // validateIndex checks equal length and strictly ascending unique UTC times.
 // It returns UTC-normalized copies of times (and a copy of values).
 func validateIndex[T any](times []time.Time, values []T) ([]time.Time, []T, error) {

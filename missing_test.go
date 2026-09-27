@@ -38,3 +38,17 @@ func TestDropNAAndFill(t *testing.T) {
 		t.Fatalf("FillLimit: %v", fl.Values())
 	}
 }
+
+func TestFillValueDelegatesToFillWithZero(t *testing.T) {
+	t.Parallel()
+	// Two consecutive NaNs, so a limit of 1 would leave the second one missing if
+	// FillLimit honoured it for FillValue.
+	s := MustNew([]time.Time{tAt(1), tAt(2), tAt(3)}, []float64{math.NaN(), math.NaN(), 3})
+	want := FillWith(s, 0)
+	if got := Fill(s, FillValue); !EqualFloat(got, want) {
+		t.Fatalf("Fill(FillValue) = %v, want %v", got.Values(), want.Values())
+	}
+	if got := FillLimit(s, FillValue, 1); !EqualFloat(got, want) {
+		t.Fatalf("FillLimit(FillValue, 1) = %v, want %v (limit must not apply)", got.Values(), want.Values())
+	}
+}

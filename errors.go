@@ -12,9 +12,6 @@ var (
 	// ErrDuplicateTime is returned when duplicate timestamps are present.
 	ErrDuplicateTime = errors.New("timeseries: duplicate timestamps are not allowed")
 
-	// ErrEmpty is returned when an operation requires a non-empty series.
-	ErrEmpty = errors.New("timeseries: series is empty")
-
 	// ErrInvalidWindow is returned when a window size is not positive.
 	ErrInvalidWindow = errors.New("timeseries: window must be positive")
 

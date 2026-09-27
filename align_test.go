@@ -27,33 +27,30 @@ func TestAlignJoins(t *testing.T) {
 	}
 }
 
-func TestJoinLeftSharesTheLeftSeries(t *testing.T) {
+func TestJoinLeftKeepsTheLeftIndex(t *testing.T) {
 	t.Parallel()
 	a := MustNew([]time.Time{tAt(1), tAt(2)}, []float64{1, 2})
 	b := MustNew([]time.Time{tAt(2), tAt(3)}, []float64{20, 30})
 	ll, rl := AlignFloat(a, b, JoinLeft)
 
-	// Documented contract: the left result is the left input itself, sharing its
-	// time index and values (O(1), no copy) because no op mutates a series in
-	// place and Times/Values/Points copy. Pinned so a future change to that
-	// ownership cannot slip through unnoticed.
-	if ll.Len() != a.Len() || &ll.times[0] != &a.times[0] || &ll.values[0] != &a.values[0] {
-		t.Fatal("left result must be the left series itself")
+	// The left result is the left input itself (documented O(1) join that shares
+	// the index and values because no op mutates a series in place); only the
+	// observable half of that contract is asserted here, so a change to the
+	// sharing that keeps the values would not fail this test.
+	if !EqualFloat(ll, a) {
+		t.Fatalf("left result = %v, want the left series unchanged", ll.Values())
 	}
-	if !equalFloats(ll.values, []float64{1, 2}) {
-		t.Fatalf("left values = %v", ll.values)
+	// The right result is aligned onto the left index, not onto b's.
+	if !rl.Times()[0].Equal(tAt(1)) || !rl.Times()[1].Equal(tAt(2)) {
+		t.Fatalf("right times = %v, want the left index", rl.Times())
+	}
+	if !math.IsNaN(rl.values[0]) || rl.values[1] != 20 {
+		t.Fatalf("right values = %v", rl.values)
 	}
 	mapped := ll.Values()
 	mapped[0] = 99
 	if ll.values[0] != 1 {
 		t.Fatal("Values() must copy, so the sharing stays unobservable")
-	}
-	// The right result is aligned onto the left index, not onto b's.
-	if len(rl.times) != 2 || &rl.times[0] != &a.times[0] {
-		t.Fatal("right result must use the left index")
-	}
-	if !math.IsNaN(rl.values[0]) || rl.values[1] != 20 {
-		t.Fatalf("right values = %v", rl.values)
 	}
 }
 

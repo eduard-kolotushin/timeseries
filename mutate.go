@@ -15,7 +15,11 @@ func (s Series[T]) SliceIndex(i, j int) (Series[T], error) {
 }
 
 // Slice returns points with start <= t < end.
+// An empty or inverted range (end <= start) yields an empty series.
 func (s Series[T]) Slice(start, end time.Time) Series[T] {
+	if !start.Before(end) {
+		return Series[T]{}
+	}
 	i := lowerBound(s.times, start)
 	j := lowerBound(s.times, end)
 	out, _ := s.SliceIndex(i, j)

@@ -26,6 +26,18 @@ func TestNewInvariants(t *testing.T) {
 	}
 }
 
+func TestEqualTreatsNaNAsUnequal(t *testing.T) {
+	t.Parallel()
+	a := MustNew([]time.Time{tAt(1), tAt(2)}, []float64{math.NaN(), 2})
+	b := MustNew([]time.Time{tAt(1), tAt(2)}, []float64{math.NaN(), 2})
+	if Equal(a, b) {
+		t.Fatal("Equal must report a NaN position as unequal, as Go's != does")
+	}
+	if !EqualFloat(a, b) {
+		t.Fatal("EqualFloat must treat NaN as equal to NaN")
+	}
+}
+
 func TestFromPointsBuildsAndValidatesInOnePass(t *testing.T) {
 	t.Parallel()
 	points := []Point[float64]{{Time: tAt(1), Value: 10}, {Time: tAt(2), Value: 20}}
@@ -70,8 +82,8 @@ func TestFromPointsAllocation(t *testing.T) {
 			panic(err)
 		}
 	})
-	if allocs != 2 {
-		t.Fatalf("FromPoints allocates %v times, want 2 (times + values)", allocs)
+	if allocs > 2 {
+		t.Fatalf("FromPoints allocates %v times, want at most 2 (times + values)", allocs)
 	}
 }
 

@@ -188,8 +188,3 @@ func Upsample(s Series[float64], start, end time.Time, step time.Duration, metho
 	}
 	return interpolateOnto(s, grid, method), nil
 }
-
-// AsRegular reindexes s onto [start, end) with step using the given interpolation method.
-func AsRegular(s Series[float64], start, end time.Time, step time.Duration, method InterpMethod) (Series[float64], error) {
-	return Upsample(s, start, end, step, method)
-}
