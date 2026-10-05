@@ -48,6 +48,90 @@ func TestResampleBucketsFromFirstTimestamp(t *testing.T) {
 	}
 }
 
+func TestResampleAggregatorBucketBoundaries(t *testing.T) {
+	t.Parallel()
+	// origin t=0, every=2s => [0,2)={1,2}, [2,4)={NaN,4}, [4,6)={5}
+	s := MustNew(
+		[]time.Time{tAt(0), tAt(1), tAt(2), tAt(3), tAt(4)},
+		[]float64{1, 2, math.NaN(), 4, 5},
+	)
+	wantTimes := []time.Time{tAt(0), tAt(2), tAt(4)}
+	cases := []struct {
+		name string
+		agg  Aggregator
+		want []float64
+	}{
+		{"AggMean", AggMean, []float64{1.5, 4, 5}},
+		{"AggSum", AggSum, []float64{3, 4, 5}},
+		{"AggMin", AggMin, []float64{1, 4, 5}},
+		{"AggMax", AggMax, []float64{2, 4, 5}},
+		{"AggFirst", AggFirst, []float64{1, 4, 5}},
+		{"AggLast", AggLast, []float64{2, 4, 5}},
+		{"AggCount", AggCount, []float64{2, 1, 1}},
+		{"AggStd", AggStd, []float64{math.Sqrt(0.5), math.NaN(), math.NaN()}},
+	}
+	for _, tc := range cases {
+		r, err := Resample(s, 2*time.Second, tc.agg)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if r.Len() != 3 || !equalTimes(r.times, wantTimes) {
+			t.Fatalf("%s times = %v, want %v", tc.name, r.Times(), wantTimes)
+		}
+		if !equalFloats(r.values, tc.want) {
+			t.Fatalf("%s values = %v, want %v", tc.name, r.Values(), tc.want)
+		}
+	}
+
+	// A point exactly on a bucket boundary starts the next bucket.
+	boundary := MustNew([]time.Time{tAt(0), tAt(1), tAt(2)}, []float64{1, 2, 3})
+	rb, err := Resample(boundary, 2*time.Second, AggSum)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rb.Len() != 2 || rb.values[0] != 3 || rb.values[1] != 3 ||
+		!rb.times[0].Equal(tAt(0)) || !rb.times[1].Equal(tAt(2)) {
+		t.Fatalf("boundary: times=%v values=%v", rb.Times(), rb.Values())
+	}
+
+	// An empty bucket is omitted rather than emitted as NaN.
+	gap := MustNew([]time.Time{tAt(0), tAt(4)}, []float64{1, 5})
+	rg, err := Resample(gap, 2*time.Second, AggSum)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rg.Len() != 2 || rg.values[0] != 1 || rg.values[1] != 5 ||
+		!rg.times[0].Equal(tAt(0)) || !rg.times[1].Equal(tAt(4)) {
+		t.Fatalf("gap: times=%v values=%v", rg.Times(), rg.Values())
+	}
+
+	// nil aggregator defaults to AggMean.
+	rn, err := Resample(s, 2*time.Second, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rm, err := Resample(s, 2*time.Second, AggMean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !equalFloats(rn.values, rm.values) || !equalTimes(rn.times, rm.times) {
+		t.Fatalf("nil agg = %v, want AggMean %v", rn.Values(), rm.Values())
+	}
+
+	// Downsample is an alias for Resample.
+	rd, err := Downsample(s, 2*time.Second, AggSum)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs, err := Resample(s, 2*time.Second, AggSum)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !equalFloats(rd.values, rs.values) || !equalTimes(rd.times, rs.times) {
+		t.Fatalf("Downsample = %v, want Resample %v", rd.Values(), rs.Values())
+	}
+}
+
 func TestInterpolateAndUpsample(t *testing.T) {
 	t.Parallel()
 	s := MustNew([]time.Time{tAt(0), tAt(2)}, []float64{0, 10})

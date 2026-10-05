@@ -108,21 +108,153 @@ func TestNewAndAccessors(t *testing.T) {
 	if s.values[0] != 10 {
 		t.Fatal("Clone must copy values")
 	}
+
+	tm, err := s.Time(1)
+	if err != nil || !tm.Equal(tAt(2)) {
+		t.Fatalf("Time: %v err=%v", tm, err)
+	}
+	v, err := s.Value(1)
+	if err != nil || v != 20 {
+		t.Fatalf("Value: %v err=%v", v, err)
+	}
+	if got := s.IndexOf(tAt(2)); got != 1 {
+		t.Fatalf("IndexOf(hit) = %d, want 1", got)
+	}
+	if got := s.IndexOf(tAt(9)); got != -1 {
+		t.Fatalf("IndexOf(miss) = %d, want -1", got)
+	}
+	for _, i := range []int{-1, 2} {
+		if _, err := s.Time(i); err != ErrIndexOutOfRange {
+			t.Fatalf("Time(%d) err=%v, want ErrIndexOutOfRange", i, err)
+		}
+		if _, err := s.Value(i); err != ErrIndexOutOfRange {
+			t.Fatalf("Value(%d) err=%v, want ErrIndexOutOfRange", i, err)
+		}
+	}
+	if _, err := s.At(-1); err != ErrIndexOutOfRange {
+		t.Fatalf("At(-1) err=%v, want ErrIndexOutOfRange", err)
+	}
+}
+
+func TestNewNormalizesNonUTCTimes(t *testing.T) {
+	t.Parallel()
+	aware := time.Date(2026, 1, 1, 12, 0, 0, 0, time.FixedZone("x", 3600))
+	s, err := New([]time.Time{aware}, []float64{1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.Times()[0]; got.Location() != time.UTC || !got.Equal(aware) {
+		t.Fatalf("time = %v (%v), want the same instant in UTC", got, got.Location())
+	}
+}
+
+func TestMustConstructorPanics(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		call func()
+	}{
+		{"MustNew duplicate time", func() { MustNew([]time.Time{tAt(1), tAt(1)}, []float64{1, 2}) }},
+		{"MustNew length mismatch", func() { MustNew([]time.Time{tAt(1)}, []float64{1, 2}) }},
+		{"MustFromPoints duplicate time", func() {
+			MustFromPoints([]Point[float64]{{Time: tAt(1), Value: 1}, {Time: tAt(1), Value: 2}})
+		}},
+	}
+	for _, tc := range cases {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Fatalf("%s: expected panic", tc.name)
+				}
+			}()
+			tc.call()
+		}()
+	}
+}
+
+func TestEqualAndEqualFloatBranches(t *testing.T) {
+	t.Parallel()
+	base := MustNew([]time.Time{tAt(1), tAt(2)}, []float64{1, 2})
+	same := MustNew([]time.Time{tAt(1), tAt(2)}, []float64{1, 2})
+	if !Equal(base, same) || !EqualFloat(base, same) {
+		t.Fatal("identical NaN-free series must compare equal")
+	}
+	cases := []struct {
+		name string
+		b    Series[float64]
+	}{
+		{"value mismatch", MustNew([]time.Time{tAt(1), tAt(2)}, []float64{1, 3})},
+		{"time mismatch", MustNew([]time.Time{tAt(1), tAt(3)}, []float64{1, 2})},
+		{"length mismatch", MustNew([]time.Time{tAt(1)}, []float64{1})},
+	}
+	for _, tc := range cases {
+		if Equal(base, tc.b) {
+			t.Fatalf("Equal must be false on %s", tc.name)
+		}
+		if EqualFloat(base, tc.b) {
+			t.Fatalf("EqualFloat must be false on %s", tc.name)
+		}
+	}
 }
 
 func TestOpsDoNotMutateInput(t *testing.T) {
 	t.Parallel()
-	s := MustNew([]time.Time{tAt(1), tAt(2), tAt(3), tAt(4)}, []float64{1, math.NaN(), 3, 4})
-	orig := cloneSlice(s.values)
+	idx := []time.Time{tAt(1), tAt(2), tAt(3), tAt(4)}
+	s := MustNew(idx, []float64{1, math.NaN(), 3, 4})
+	other := MustNew(idx, []float64{5, 6, 7, 8})
+	beforeTimes := cloneSlice(s.times)
+	beforeVals := cloneSlice(s.values)
+	otherBefore := cloneSlice(other.values)
 
-	_ = Fill(s, FillForward)
-	_ = Map(s, func(v float64) float64 { return v + 1 })
-	_ = Lag(s, 1)
-	_ = Diff(s, 1)
-	sl := s.Slice(tAt(2), tAt(4))
-	_ = Fill(sl, FillForward)
-	if !equalFloats(s.values, orig) {
-		t.Fatalf("input mutated: %v", s.values)
+	cases := []struct {
+		name string
+		run  func()
+	}{
+		{"Fill", func() { _ = Fill(s, FillForward) }},
+		{"FillWith", func() { _ = FillWith(s, 0) }},
+		{"Map", func() { _ = Map(s, func(v float64) float64 { return v + 1 }) }},
+		{"AddScalar", func() { _ = AddScalar(s, 10) }},
+		{"MulScalar", func() { _ = MulScalar(s, 2) }},
+		{"Abs", func() { _ = Abs(s) }},
+		{"Clip", func() { _ = Clip(s, 0, 2) }},
+		{"Lag", func() { _ = Lag(s, 1) }},
+		{"Lead", func() { _ = Lead(s, 1) }},
+		{"Diff", func() { _ = Diff(s, 1) }},
+		{"PctChange", func() { _ = PctChange(s, 1) }},
+		{"CumSum", func() { _ = CumSum(s) }},
+		{"CumMax", func() { _ = CumMax(s) }},
+		{"CumMin", func() { _ = CumMin(s) }},
+		{"DropNA", func() { _ = DropNA(s) }},
+		{"Trim", func() { _ = Trim(s) }},
+		{"RollingDuration", func() { _, _ = RollingDuration(s, 2*time.Second, AggMean) }},
+		{"Resample", func() { _, _ = Resample(s, 2*time.Second, AggSum) }},
+		{"Downsample", func() { _, _ = Downsample(s, 2*time.Second, AggSum) }},
+		{"Upsample", func() { _, _ = Upsample(s, tAt(1), tAt(4), time.Second, InterpLinear) }},
+		{"Interpolate", func() { _, _ = Interpolate(s, []time.Time{tAt(2), tAt(5)}, InterpStep) }},
+		{"Slice", func() { _ = s.Slice(tAt(2), tAt(4)) }},
+		{"SliceInPlace", func() { _, _ = s.SliceIndex(0, 2) }},
+		{"Align", func() { _, _ = Align(s, other, JoinOuter) }},
+		{"Merge", func() { _, _ = Merge(s, other, nil) }},
+		{"Add", func() { _ = Add(s, other) }},
+		{"Div", func() { _ = Div(s, other) }},
+		{"Times", func() { _ = s.Times() }},
+		{"Values", func() { _ = s.Values() }},
+		{"Points", func() { _ = s.Points() }},
+		{"Clone", func() { _ = s.Clone() }},
+		{"At", func() { _, _ = s.At(1) }},
+		{"Filter", func() { _ = s.Filter(func(time.Time, float64) bool { return true }) }},
+	}
+	for _, tc := range cases {
+		tc.run()
+		if !equalTimes(s.times, beforeTimes) {
+			t.Fatalf("%s mutated input times: %v", tc.name, s.times)
+		}
+		if !equalFloats(s.values, beforeVals) {
+			t.Fatalf("%s mutated input values: %v", tc.name, s.values)
+		}
+		if !equalFloats(other.values, otherBefore) {
+			t.Fatalf("%s mutated the second operand: %v", tc.name, other.values)
+		}
 	}
 }
 
@@ -133,6 +265,18 @@ func TestEqualFloat(t *testing.T) {
 	if !EqualFloat(a, b) {
 		t.Fatal("NaNs should compare equal")
 	}
+}
+
+func equalTimes(a, b []time.Time) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !a[i].Equal(b[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func equalFloats(a, b []float64) bool {

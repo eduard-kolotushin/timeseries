@@ -54,6 +54,40 @@ func TestJoinLeftKeepsTheLeftIndex(t *testing.T) {
 	}
 }
 
+func TestAlignGenericFillsZero(t *testing.T) {
+	t.Parallel()
+	a := MustNew([]time.Time{tAt(1), tAt(2)}, []int{10, 20})
+	b := MustNew([]time.Time{tAt(2), tAt(3)}, []int{200, 300})
+
+	li, ri := Align(a, b, JoinInner)
+	if li.Len() != 1 || li.values[0] != 20 || ri.values[0] != 200 || !li.times[0].Equal(tAt(2)) {
+		t.Fatalf("inner: L=%v R=%v times=%v", li.Values(), ri.Values(), li.Times())
+	}
+
+	lo, ro := Align(a, b, JoinOuter)
+	if lo.Len() != 3 || !equalInts(lo.values, []int{10, 20, 0}) {
+		t.Fatalf("outer left = %v, want [10 20 0]", lo.Values())
+	}
+	if !equalInts(ro.values, []int{0, 200, 300}) {
+		t.Fatalf("outer right = %v, want [0 200 300]", ro.Values())
+	}
+	if !equalTimes(lo.times, []time.Time{tAt(1), tAt(2), tAt(3)}) {
+		t.Fatalf("outer times = %v", lo.Times())
+	}
+}
+
+func equalInts(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestMergeConcat(t *testing.T) {
 	t.Parallel()
 	a := MustNew([]time.Time{tAt(1), tAt(3)}, []float64{1, 3})
