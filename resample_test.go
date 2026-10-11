@@ -132,6 +132,47 @@ func TestResampleAggregatorBucketBoundaries(t *testing.T) {
 	}
 }
 
+func TestResampleBucketEdgesAtSubSecondResolution(t *testing.T) {
+	t.Parallel()
+	// Buckets are [t, t+every), so a point one millisecond before the edge is
+	// still inside the first bucket and a point exactly on t+every starts the
+	// next one.
+	const every = time.Minute
+	origin := tAt(0)
+	edge := origin.Add(every - time.Millisecond)
+	next := origin.Add(every)
+	s := MustNew([]time.Time{origin, edge, next}, []float64{1, 3, 10})
+	wantTimes := []time.Time{origin, next}
+	cases := []struct {
+		name string
+		agg  Aggregator
+		want []float64
+	}{
+		{"AggMean", AggMean, []float64{2, 10}},
+		{"AggSum", AggSum, []float64{4, 10}},
+		{"AggMin", AggMin, []float64{1, 10}},
+		{"AggMax", AggMax, []float64{3, 10}},
+		{"AggFirst", AggFirst, []float64{1, 10}},
+		{"AggLast", AggLast, []float64{3, 10}},
+		{"AggCount", AggCount, []float64{2, 1}},
+		// AggStd is the sample standard deviation (n-1): sqrt(((1-2)^2+(3-2)^2)/1) = sqrt(2);
+		// a one-value bucket is NaN (fewer than 2 values).
+		{"AggStd", AggStd, []float64{math.Sqrt(2), math.NaN()}},
+	}
+	for _, tc := range cases {
+		r, err := Resample(s, every, tc.agg)
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		if r.Len() != 2 || !equalTimes(r.times, wantTimes) {
+			t.Fatalf("%s times = %v, want %v", tc.name, r.Times(), wantTimes)
+		}
+		if !equalFloats(r.values, tc.want) {
+			t.Fatalf("%s values = %v, want %v", tc.name, r.Values(), tc.want)
+		}
+	}
+}
+
 func TestInterpolateAndUpsample(t *testing.T) {
 	t.Parallel()
 	s := MustNew([]time.Time{tAt(0), tAt(2)}, []float64{0, 10})
