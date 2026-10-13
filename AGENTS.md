@@ -42,3 +42,4 @@ Multi-column DataFrame, CSV/JSON I/O, plotting (see sibling `timeseries-grafana`
 - Keep changes focused; avoid unrelated refactors
 - When touching a hot path, keep or add a benchmark in `bench_test.go`
 - GitHub Actions on `main`: `gofmt` and `go test ./...`
+- Release a consumer-visible change as an annotated tag — patch for tests/docs/dependency pins, minor for API additions, major for removals: `git tag -a vX.Y.Z -m "…" && git push origin vX.Y.Z`. CI runs on branch pushes, not tags.
